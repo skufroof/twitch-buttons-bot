@@ -15,9 +15,9 @@ class TwitchBotManager {
         const buttonStyle = `
             display: inline-block;
             background: ${button.color};
-            color: ${button.textColor};
+            color: ${button.text_color};
             font-family: ${button.font};
-            font-size: ${button.fontSize};
+            font-size: ${button.font_size};
             padding: 8px 16px;
             margin: 5px;
             border-radius: 5px;
@@ -39,29 +39,22 @@ class TwitchBotManager {
 
     async loadUserData(userId) {
         const [buttons, settings] = await Promise.all([
-            Button.find({ userId, enabled: true }).sort('order'),
-            Settings.findOne({ userId })
+            Button.findByUserIdAndEnabled(userId),
+            Settings.getOrCreate(userId)
         ]);
         
-        return { 
-            buttons: buttons || [], 
-            settings: settings || new Settings({ userId }) 
-        };
+        return { buttons, settings };
     }
 
     shouldSendMessage(botData) {
         const { settings, isOnline, lastMessageTime, messageCount } = botData;
         
-        // Check if should send based on online status
-        if (settings.sendOnlyWhenOnline && !isOnline) return false;
+        if (settings.send_only_when_online && !isOnline) return false;
         
-        // Check time interval
         const now = Date.now();
         const timeSinceLastMessage = (now - lastMessageTime) / 1000;
-        if (timeSinceLastMessage < settings.messageInterval) return false;
-        
-        // Check messages between
-        if (messageCount < settings.messagesBetween) return false;
+        if (timeSinceLastMessage < settings.message_interval) return false;
+        if (messageCount < settings.messages_between) return false;
         
         return true;
     }
@@ -69,7 +62,7 @@ class TwitchBotManager {
     async sendButtonMessage(userId, channel, botData) {
         if (!this.shouldSendMessage(botData)) return;
         
-        const message = this.generateMessage(botData.buttons, botData.settings.messageTemplate);
+        const message = this.generateMessage(botData.buttons, botData.settings.message_template);
         if (!message) return;
         
         try {
@@ -84,21 +77,21 @@ class TwitchBotManager {
     }
 
     async startBot(user) {
-        const userId = user._id.toString();
+        const userId = user.id;
         
         if (this.bots.has(userId)) {
             console.log(chalk.yellow(`Bot already running for ${user.username}`));
             return;
         }
         
-        const { buttons, settings } = await this.loadUserData(user._id);
+        const { buttons, settings } = await this.loadUserData(userId);
         
         const client = new tmi.Client({
             options: { debug: false },
             connection: { reconnect: true, secure: true },
             identity: {
                 username: user.username,
-                password: user.accessToken
+                password: user.access_token
             },
             channels: [user.username]
         });
@@ -115,16 +108,14 @@ class TwitchBotManager {
             interval: null
         };
         
-        // Setup message handler to count messages
         client.on('message', (channel, tags, message, self) => {
             if (!self) {
                 botData.messageCount++;
             }
         });
         
-        // Setup interval for sending messages (check every 10 seconds)
         botData.interval = setInterval(async () => {
-            if (user.isBotActive && botData.isOnline) {
+            if (user.is_bot_active && botData.isOnline) {
                 await this.sendButtonMessage(userId, user.username, botData);
             }
         }, 10000);
@@ -133,8 +124,7 @@ class TwitchBotManager {
         
         console.log(chalk.green(`✅ Bot started for ${user.username}`));
         
-        // Send first message immediately if enabled
-        if (settings.sendFirstMessageImmediately && user.isBotActive) {
+        if (settings.send_first_message_immediately && user.is_bot_active) {
             setTimeout(async () => {
                 if (botData.isOnline) {
                     await this.sendButtonMessage(userId, user.username, botData);
@@ -142,25 +132,23 @@ class TwitchBotManager {
             }, 5000);
         }
         
-        // Check online status immediately
         await this.updateOnlineStatus(user);
     }
     
     async updateOnlineStatus(user) {
-        const botData = this.bots.get(user._id.toString());
+        const botData = this.bots.get(user.id);
         if (!botData) return;
         
         try {
-            const isOnline = await twitchApi.isUserOnline(user.twitchId, user.accessToken);
+            const isOnline = await twitchApi.isUserOnline(user.twitch_id, user.access_token);
             
             if (isOnline !== botData.isOnline) {
                 botData.isOnline = isOnline;
                 console.log(chalk.cyan(`${user.username} is now ${isOnline ? 'ONLINE 🟢' : 'OFFLINE 🔴'}`));
                 
-                // Send message immediately when stream goes online
-                if (isOnline && user.isBotActive && botData.settings.sendFirstMessageImmediately) {
+                if (isOnline && user.is_bot_active && botData.settings.send_first_message_immediately) {
                     setTimeout(async () => {
-                        await this.sendButtonMessage(user._id.toString(), user.username, botData);
+                        await this.sendButtonMessage(user.id, user.username, botData);
                     }, 5000);
                 }
             }
@@ -183,14 +171,14 @@ class TwitchBotManager {
     
     async refreshBot(userId) {
         const user = await User.findById(userId);
-        if (user && user.isBotActive) {
+        if (user && user.is_bot_active) {
             await this.stopBot(userId);
             await this.startBot(user);
         }
     }
     
     async startAllBots() {
-        const users = await User.find({ isBotActive: true });
+        const users = await User.findAllActive();
         console.log(chalk.blue(`Starting bots for ${users.length} users...`));
         
         for (const user of users) {
@@ -201,9 +189,8 @@ class TwitchBotManager {
             }
         }
         
-        // Start interval to check online status every 2 minutes
         this.statusCheckInterval = setInterval(async () => {
-            const users = await User.find({ isBotActive: true });
+            const users = await User.findAllActive();
             for (const user of users) {
                 await this.updateOnlineStatus(user);
             }

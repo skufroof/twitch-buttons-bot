@@ -15,17 +15,18 @@ class TwitchAPI {
                 params: {
                     client_id: this.clientId,
                     client_secret: this.clientSecret,
-                    refresh_token: user.refreshToken,
+                    refresh_token: user.refresh_token,
                     grant_type: 'refresh_token'
                 }
             });
 
-            user.accessToken = response.data.access_token;
-            user.refreshToken = response.data.refresh_token;
-            user.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
-            await user.save();
+            const updatedUser = await User.update(user.id, {
+                access_token: response.data.access_token,
+                refresh_token: response.data.refresh_token,
+                token_expiry: new Date(Date.now() + response.data.expires_in * 1000)
+            });
 
-            return user.accessToken;
+            return updatedUser.access_token;
         } catch (error) {
             console.error('Error refreshing token:', error.response?.data || error.message);
             throw error;
@@ -33,9 +34,9 @@ class TwitchAPI {
     }
 
     async getHeaders(user) {
-        let token = user.accessToken;
+        let token = user.access_token;
         
-        if (user.isTokenExpired && user.isTokenExpired()) {
+        if (user.token_expiry && new Date(user.token_expiry) < new Date()) {
             token = await this.refreshAccessToken(user);
         }
         

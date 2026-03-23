@@ -10,23 +10,23 @@ const ensureAuthenticated = (req, res, next) => {
     res.status(401).json({ error: 'Not authenticated' });
 };
 
-// Get all buttons for current user
 router.get('/', ensureAuthenticated, async (req, res) => {
     try {
-        const buttons = await Button.find({ userId: req.user._id }).sort('order');
+        const buttons = await Button.findByUserId(req.user.id);
         res.json(buttons);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Create a new button
 router.post('/', ensureAuthenticated, async (req, res) => {
     try {
         const { id, text, url, color, textColor, font, fontSize, icon } = req.body;
         
-        const button = new Button({
-            userId: req.user._id,
+        const count = await Button.countByUserId(req.user.id);
+        
+        const button = await Button.create({
+            userId: req.user.id,
             id: id || `btn_${Date.now()}`,
             text,
             url,
@@ -35,17 +35,14 @@ router.post('/', ensureAuthenticated, async (req, res) => {
             font: font || 'Arial',
             fontSize: fontSize || '14px',
             icon: icon || '🔘',
-            order: await Button.countDocuments({ userId: req.user._id })
+            order: count
         });
         
-        await button.save();
-        
-        // Refresh bot
-        await twitchBotManager.refreshBot(req.user._id.toString());
+        await twitchBotManager.refreshBot(req.user.id);
         
         res.json(button);
     } catch (error) {
-        if (error.code === 11000) {
+        if (error.code === '23505') {
             res.status(400).json({ error: 'Button with this ID already exists' });
         } else {
             res.status(500).json({ error: error.message });
@@ -53,50 +50,43 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// Update a button
 router.put('/:buttonId', ensureAuthenticated, async (req, res) => {
     try {
-        const button = await Button.findOne({ 
-            _id: req.params.buttonId, 
-            userId: req.user._id 
-        });
+        const button = await Button.findById(req.params.buttonId, req.user.id);
         
         if (!button) {
             return res.status(404).json({ error: 'Button not found' });
         }
         
-        const allowedUpdates = ['text', 'url', 'color', 'textColor', 'font', 'fontSize', 'icon', 'enabled'];
+        const updates = {};
+        const allowedUpdates = ['text', 'url', 'color', 'text_color', 'font', 'font_size', 'icon', 'enabled'];
+        
         allowedUpdates.forEach(field => {
-            if (req.body[field] !== undefined) {
-                button[field] = req.body[field];
+            const reqField = field === 'text_color' ? 'textColor' : 
+                            field === 'font_size' ? 'fontSize' : field;
+            if (req.body[reqField] !== undefined) {
+                updates[field] = req.body[reqField];
             }
         });
         
-        await button.save();
+        const updatedButton = await Button.update(req.params.buttonId, req.user.id, updates);
+        await twitchBotManager.refreshBot(req.user.id);
         
-        // Refresh bot
-        await twitchBotManager.refreshBot(req.user._id.toString());
-        
-        res.json(button);
+        res.json(updatedButton);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Delete a button
 router.delete('/:buttonId', ensureAuthenticated, async (req, res) => {
     try {
-        const result = await Button.findOneAndDelete({ 
-            _id: req.params.buttonId, 
-            userId: req.user._id 
-        });
+        const result = await Button.delete(req.params.buttonId, req.user.id);
         
         if (!result) {
             return res.status(404).json({ error: 'Button not found' });
         }
         
-        // Refresh bot
-        await twitchBotManager.refreshBot(req.user._id.toString());
+        await twitchBotManager.refreshBot(req.user.id);
         
         res.json({ success: true });
     } catch (error) {
@@ -104,20 +94,11 @@ router.delete('/:buttonId', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// Reorder buttons
 router.post('/reorder', ensureAuthenticated, async (req, res) => {
     try {
         const { buttonOrders } = req.body;
-        
-        for (const { id, order } of buttonOrders) {
-            await Button.updateOne(
-                { _id: id, userId: req.user._id },
-                { order }
-            );
-        }
-        
-        // Refresh bot
-        await twitchBotManager.refreshBot(req.user._id.toString());
+        await Button.reorder(req.user.id, buttonOrders);
+        await twitchBotManager.refreshBot(req.user.id);
         
         res.json({ success: true });
     } catch (error) {

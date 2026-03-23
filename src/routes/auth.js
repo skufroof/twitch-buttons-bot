@@ -23,10 +23,10 @@ router.get('/logout', (req, res) => {
 router.get('/user', (req, res) => {
     if (req.isAuthenticated()) {
         res.json({
-            id: req.user._id,
+            id: req.user.id,
             username: req.user.username,
-            displayName: req.user.displayName,
-            profileImage: req.user.profileImage
+            displayName: req.user.display_name,
+            profileImage: req.user.profile_image
         });
     } else {
         res.status(401).json({ error: 'Not authenticated' });

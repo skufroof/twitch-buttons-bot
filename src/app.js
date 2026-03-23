@@ -6,15 +6,14 @@ const TwitchStrategy = require('passport-twitch').Strategy;
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
-const MongoStore = require('connect-mongo');
+const PgSession = require('connect-pg-simple')(session);
 const chalk = require('chalk');
 
-const connectDB = require('./config/database');
+const { connectDB, getPool } = require('./config/database');
 const User = require('./models/User');
 const Settings = require('./models/Settings');
 const twitchBotManager = require('./services/twitchBot');
 
-// Import routes
 const authRoutes = require('./routes/auth');
 const buttonRoutes = require('./routes/buttons');
 const settingsRoutes = require('./routes/settings');
@@ -37,19 +36,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Session configuration
+// Session configuration with PostgreSQL
 app.use(session({
+    store: new PgSession({
+        pool: getPool(),
+        tableName: 'session',
+        createTableIfMissing: true
+    }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        ttl: 30 * 24 * 60 * 60 // 30 days
-    }),
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     }
 }));
@@ -65,10 +65,10 @@ passport.use(new TwitchStrategy({
     scope: 'user:read:email chat:read chat:edit'
 }, async (accessToken, refreshToken, profile, done) => {
     try {
-        let user = await User.findOne({ twitchId: profile.id });
+        let user = await User.findByTwitchId(profile.id);
         
         if (!user) {
-            user = new User({
+            user = await User.create({
                 twitchId: profile.id,
                 username: profile.login,
                 displayName: profile.display_name,
@@ -78,15 +78,14 @@ passport.use(new TwitchStrategy({
                 refreshToken: refreshToken,
                 tokenExpiry: new Date(Date.now() + 3600 * 1000)
             });
-            await user.save();
             
-            // Create default settings for new user
-            await Settings.create({ userId: user._id });
+            await Settings.create(user.id);
         } else {
-            user.accessToken = accessToken;
-            user.refreshToken = refreshToken;
-            user.lastLogin = new Date();
-            await user.save();
+            user = await User.update(user.id, {
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                last_login: new Date()
+            });
         }
         
         return done(null, user);
@@ -114,7 +113,6 @@ app.use('/auth', authRoutes);
 app.use('/api/buttons', buttonRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Serve dashboard
 app.get('/dashboard', ensureAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
@@ -127,41 +125,38 @@ app.get('/', (req, res) => {
     }
 });
 
-// API endpoint to get user data
 app.get('/api/user', ensureAuthenticated, async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.id);
         res.json({
             username: user.username,
-            displayName: user.displayName,
-            profileImage: user.profileImage,
-            isBotActive: user.isBotActive
+            displayName: user.display_name,
+            profileImage: user.profile_image,
+            isBotActive: user.is_bot_active
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// API endpoint to toggle bot
 app.post('/api/bot/toggle', ensureAuthenticated, async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
-        user.isBotActive = !user.isBotActive;
-        await user.save();
+        const user = await User.update(req.user.id, {
+            is_bot_active: !req.user.is_bot_active
+        });
         
-        if (user.isBotActive) {
+        if (user.is_bot_active) {
             await twitchBotManager.startBot(user);
         } else {
-            await twitchBotManager.stopBot(user._id.toString());
+            await twitchBotManager.stopBot(user.id);
         }
         
-        res.json({ isBotActive: user.isBotActive });
+        res.json({ isBotActive: user.is_bot_active });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
@@ -170,7 +165,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Middleware to check authentication
 function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
@@ -182,7 +176,6 @@ function ensureAuthenticated(req, res, next) {
     }
 }
 
-// Start server and bots
 const startServer = async () => {
     try {
         await twitchBotManager.startAllBots();
@@ -201,7 +194,6 @@ const startServer = async () => {
     }
 };
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log(chalk.yellow('\nSIGTERM received, shutting down...'));
     await twitchBotManager.shutdown();
