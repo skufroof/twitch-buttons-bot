@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель управления - Twitch Buttons Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #6441a5 0%, #2a0845 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        
+        .logout-btn {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #333;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: #9146FF;
+            border-bottom: 2px solid #9146FF;
+            margin-bottom: -2px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Buttons Grid */
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .button-card {
+            background: #2a2a3a;
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+        
+        .button-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button-preview {
+            background: #1a1a2a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .button-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .button-form input, .button-form select {
+            padding: 0.5rem;
+            background: #1a1a2a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+        
+        .color-input {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .color-input input[type="color"] {
+            width: 50px;
+            height: 35px;
+            padding: 0;
+        }
+        
+        .button-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #9146FF;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #7a3ad9;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #4b5563;
+            color: white;
+        }
+        
+        .settings-panel {
+            background: #2a2a3a;
+            border-radius: 10px;
+            padding: 2rem;
+            max-width: 600px;
+        }
+        
+        .setting-item {
+            margin-bottom: 1.5rem;
+        }
+        
+        .setting-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .setting-item input, .setting-item select, .setting-item textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: #1a1a2a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+        
+        .setting-item textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #9146FF;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #2a2a3a;
+            border-radius: 50px;
+            margin-bottom: 1rem;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.online {
+            background: #10b981;
+        }
+        
+        .status-dot.offline {
+            background: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .add-button-form {
+            background: #2a2a3a;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .buttons-grid { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">🎮 Twitch Buttons Bot</div>
+        <div class="user-info">
+            <img id="userAvatar" class="user-avatar" src="" alt="Avatar">
+            <span id="userName"></span>
+            <a href="/auth/logout" class="logout-btn">Выйти</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="status-badge">
+            <div class="status-dot" id="streamStatus"></div>
+            <span id="statusText">Загрузка...</span>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('buttons')">🔘 Кнопки</button>
+            <button class="tab" onclick="showTab('settings')">⚙️ Настройки</button>
+        </div>
+        
+        <div id="buttonsTab" class="tab-content active">
+            <div class="buttons-grid" id="buttonsGrid"></div>
+            
+            <div class="add-button-form">
+                <h3>➕ Добавить кнопку</h3>
+                <div class="form-row">
+                    <input type="text" id="btnText" placeholder="Текст кнопки">
+                    <input type="text" id="btnUrl" placeholder="Ссылка (https://...)">
+                </div>
+                <div class="form-row">
+                    <div class="color-input">
+                        <span>Цвет:</span>
+                        <input type="color" id="btnColor" value="#9146FF">
+                    </div>
+                    <div class="color-input">
+                        <span>Цвет текста:</span>
+                        <input type="color" id="btnTextColor" value="#FFFFFF">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <input type="text" id="btnFont" placeholder="Шрифт (Arial, Verdana, etc)" value="Arial">
+                    <input type="text" id="btnFontSize" placeholder="Размер (14px, 1rem)" value="14px">
+                </div>
+                <div class="form-row">
+                    <input type="text" id="btnIcon" placeholder="Иконка (😊, 🌐, etc)" value="🔘">
+                    <input type="text" id="btnId" placeholder="ID (уникальный идентификатор)">
+                </div>
+                <button class="btn btn-primary" onclick="addButton()">➕ Добавить кнопку</button>
+            </div>
+        </div>
+        
+        <div id="settingsTab" class="tab-content">
+            <div class="settings-panel">
+                <div class="setting-item">
+                    <label>🤖 Статус бота</label>
+                    <button class="btn" id="toggleBotBtn" onclick="toggleBot()"></button>
+                </div>
+                
+                <div class="setting-item">
+                    <label>⏱️ Интервал между сообщениями (секунды)</label>
+                    <input type="number" id="messageInterval" min="30" max="3600">
+                </div>
+                
+                <div class="setting-item">
+                    <label>💬 Сообщений между отправками</label>
+                    <input type="number" id="messagesBetween" min="1" max="50">
+                </div>
+                
+                <div class="setting-item">
+                    <label>📡 Отправлять только когда стрим онлайн</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sendOnlyWhenOnline">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>⚡ Отправить первое сообщение сразу после запуска</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sendFirstMessageImmediately">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>📝 Шаблон сообщения (используйте {buttons} для вставки кнопок)</label>
+                    <textarea id="messageTemplate" rows="3"></textarea>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveSettings()">💾 Сохранить настройки</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentButtons = [];
+        
+        // Load user data
+        async function loadUser() {
+            try {
+                const res = await fetch('/api/user');
+                const user = await res.json();
+                document.getElementById('userName').textContent = user.displayName;
+                document.getElementById('userAvatar').src = user.profileImage || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/75305d54-c7cc-40d1-bb9c-91fbe85943c7-profile_image-70x70.png';
+                
+                const toggleBtn = document.getElementById('toggleBotBtn');
+                toggleBtn.textContent = user.isBotActive ? '🔴 Остановить бота' : '🟢 Запустить бота';
+                toggleBtn.className = user.isBotActive ? 'btn btn-danger' : 'btn btn-success';
+            } catch (error) {
+                console.error('Error loading user:', error);
+            }
+        }
+        
+        // Load buttons
+        async function loadButtons() {
+            try {
+                const res = await fetch('/api/buttons');
+                currentButtons = await res.json();
+                renderButtons();
+            } catch (error) {
+                console.error('Error loading buttons:', error);
+            }
+        }
+        
+        // Render buttons grid
+        function renderButtons() {
+            const grid = document.getElementById('buttonsGrid');
+            if (currentButtons.length === 0) {
+                grid.innerHTML = '<p style="text-align:center; padding: 2rem;">Нет кнопок. Добавьте первую кнопку!</p>';
+                return;
+            }
+            
+            grid.innerHTML = currentButtons.map(btn => `
+                <div class="button-card">
+                    <div class="button-preview">
+                        <a href="${btn.url}" target="_blank" style="
+                            display: inline-block;
+                            background: ${btn.color};
+                            color: ${btn.textColor};
+                            font-family: ${btn.font};
+                            font-size: ${btn.fontSize};
+                            padding: 8px 16px;
+                            border-radius: 5px;
+                            text-decoration: none;
+                        ">${btn.icon} ${btn.text}</a>
+                    </div>
+                    <div class="button-form">
+                        <input type="text" id="text_${btn._id}" value="${btn.text}" placeholder="Текст">
+                        <input type="text" id="url_${btn._id}" value="${btn.url}" placeholder="Ссылка">
+                        <div class="color-input">
+                            <input type="color" id="color_${btn._id}" value="${btn.color}">
+                            <input type="color" id="textColor_${btn._id}" value="${btn.textColor}">
+                        </div>
+                        <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                            <input type="text" id="font_${btn._id}" value="${btn.font}" placeholder="Шрифт">
+                            <input type="text" id="fontSize_${btn._id}" value="${btn.fontSize}" placeholder="Размер">
+                        </div>
+                        <div class="form-row" style="grid-template-columns: 1fr auto;">
+                            <input type="text" id="icon_${btn._id}" value="${btn.icon}" placeholder="Иконка">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="enabled_${btn._id}" ${btn.enabled ? 'checked' : ''}>
+                                Активна
+                            </label>
+                        </div>
+                        <div class="button-actions">
+                            <button class="btn btn-primary" onclick="updateButton('${btn._id}')">💾 Сохранить</button>
+                            <button class="btn btn-danger" onclick="deleteButton('${btn._id}')">🗑️ Удалить</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Add button
+        async function addButton() {
+            const button = {
+                text: document.getElementById('btnText').value,
+                url: document.getElementById('btnUrl').value,
+                color: document.getElementById('btnColor').value,
+                textColor: document.getElementById('btnTextColor').value,
+                font: document.getElementById('btnFont').value,
+                fontSize: document.getElementById('btnFontSize').value,
+                icon: document.getElementById('btnIcon').value,
+                id: document.getElementById('btnId').value || `btn_${Date.now()}`
+            };
+            
+            if (!button.text || !button.url) {
+                alert('Заполните текст и ссылку');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/buttons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(button)
+                });
+                
+                if (res.ok) {
+                    // Clear form
+                    document.getElementById('btnText').value = '';
+                    document.getElementById('btnUrl').value = '';
+                    document.getElementById('btnId').value = '';
+                    loadButtons();
+                } else {
+                    const error = await res.json();
+                    alert('Ошибка: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Error adding button:', error);
+            }
+        }
+        
+        // Update button
+        async function updateButton(id) {
+            const updates = {
+                text: document.getElementById(`text_${id}`).value,
+                url: document.getElementById(`url_${id}`).value,
+                color: document.getElementById(`color_${id}`).value,
+                textColor: document.getElementById(`textColor_${id}`).value,
+                font: document.getElementById(`font_${id}`).value,
+                fontSize: document.getElementById(`fontSize_${id}`).value,
+                icon: document.getElementById(`icon_${id}`).value,
+                enabled: document.getElementById(`enabled_${id}`).checked
+            };
+            
+            try {
+                const res = await fetch(`/api/buttons/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                
+                if (res.ok) {
+                    loadButtons();
+                } else {
+                    alert('Ошибка обновления');
+                }
+            } catch (error) {
+                console.error('Error updating button:', error);
+            }
+        }
+        
+        // Delete button
+        async function deleteButton(id) {
+            if (!confirm('Удалить эту кнопку?')) return;
+            
+            try {
+                const res = await fetch(`/api/buttons/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (res.ok) {
+                    loadButtons();
+                } else {
+                    alert('Ошибка удаления');
+                }
+            } catch (error) {
+                console.error('Error deleting button:', error);
+            }
+        }
+        
+        // Load settings
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const settings = await res.json();
+                
+                document.getElementById('messageInterval').value = settings.messageInterval;
+                document.getElementById('messagesBetween').value = settings.messagesBetween;
+                document.getElementById('sendOnlyWhenOnline').checked = settings.sendOnlyWhenOnline;
+                document.getElementById('sendFirstMessageImmediately').checked = settings.sendFirstMessageImmediately;
+                document.getElementById('messageTemplate').value = settings.messageTemplate;
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+        
+        // Save settings
+        async function saveSettings() {
+            const settings = {
+                messageInterval: parseInt(document.getElementById('messageInterval').value),
+                messagesBetween: parseInt(document.getElementById('messagesBetween').value),
+                sendOnlyWhenOnline: document.getElementById('sendOnlyWhenOnline').checked,
+                sendFirstMessageImmediately: document.getElementById('sendFirstMessageImmediately').checked,
+                messageTemplate: document.getElementById('messageTemplate').value
+            };
+            
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                if (res.ok) {
+                    alert('Настройки сохранены!');
+                } else {
+                    alert('Ошибка сохранения');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+            }
+        }
+        
+        // Toggle bot
+        async function toggleBot() {
+            try {
+                const res = await fetch('/api/bot/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await res.json();
+                const toggleBtn = document.getElementById('toggleBotBtn');
+                toggleBtn.textContent = data.isBotActive ? '🔴 Остановить бота' : '🟢 Запустить бота';
+                toggleBtn.className = data.isBotActive ? 'btn btn-danger' : 'btn btn-success';
+                
+                // Update stream status after toggling
+                checkStreamStatus();
+            } catch (error) {
+                console.error('Error toggling bot:', error);
+            }
+        }
+        
+        // Check stream status
+        async function checkStreamStatus() {
+            try {
+                const res = await fetch('/api/user');
+                const user = await res.json();
+                
+                const statusDot = document.getElementById('streamStatus');
+                const statusText = document.getElementById('statusText');
+                
+                if (user.isBotActive) {
+                    // We'll simulate online status, in production you'd get this from your backend
+                    statusDot.className = 'status-dot online';
+                    statusText.textContent = '🟢 Бот активен';
+                } else {
+                    statusDot.className = 'status-dot offline';
+                    statusText.textContent = '🔴 Бот остановлен';
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+        
+        // Tab switching
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', i === (tab === 'buttons' ? 0 : 1));
+            });
+            document.getElementById('buttonsTab').classList.toggle('active', tab === 'buttons');
+            document.getElementById('settingsTab').classList.toggle('active', tab === 'settings');
+        }
+        
+        // Initialize
+        loadUser();
+        loadButtons();
+        loadSettings();
+        checkStreamStatus();
+        
+        // Refresh status every 30 seconds
+        setInterval(checkStreamStatus, 30000);
+    </script>
+</body>
+</html>

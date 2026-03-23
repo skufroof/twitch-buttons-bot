@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: twitch-multi-buttons-bot
+    env: node
+    buildCommand: npm install
+    startCommand: node src/app.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        fromDatabase:
+          name: twitch-bot-db
+          property: connectionString
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      - key: TWITCH_REDIRECT_URI
+        value: https://twitch-multi-buttons-bot.onrender.com/auth/twitch/callback
+    healthCheckPath: /
+    autoDeploy: true
+
+databases:
+  - name: twitch-bot-db
+    databaseName: twitch_bot
+    user: twitch_bot_user
+    plan: free

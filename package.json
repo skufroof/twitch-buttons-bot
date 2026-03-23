@@ -1,0 +1,35 @@
+{
+  "name": "twitch-multi-buttons-bot",
+  "version": "3.0.0",
+  "description": "Multi-tenant Twitch bot with visual button configuration",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop twitch-buttons-bot",
+    "pm2:logs": "pm2 logs twitch-buttons-bot"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "tmi.js": "^1.8.5",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-session": "^1.17.3",
+    "passport": "^0.6.0",
+    "passport-twitch": "^1.0.1",
+    "ejs": "^3.1.9",
+    "node-cron": "^3.0.3",
+    "axios": "^1.5.0",
+    "socket.io": "^4.7.2",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
